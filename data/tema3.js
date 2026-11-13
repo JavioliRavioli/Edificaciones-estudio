@@ -151,7 +151,7 @@
       ].join("")
     },
     {
-      id: "d3", titulo: "Soladura de piedra", corto: "Soladura", vb: [0, 0, 520, 300],
+      id: "d3", titulo: "Soladura de piedra", corto: "Soladura", vb: [0, 0, 520, 330],
       desc: "Nombra cada capa y completa la junta máxima entre piedras.",
       blanks: { cp: "Contrapiso", pi: "Piedra Ø 15 cm", ar: "Arena cernida", re: "Relleno compactado", j: "2 cm" },
       x: ["Yeso", "Ripio", "10 cm", "Piedra Ø 30 cm"],
@@ -167,9 +167,9 @@
         S.t(365, 178, "@re:l"), S.l(362, 178, 330, 178),
         S.l(20, 218, 500, 218, "da"),
         S.t(20, 236, "DETALLE DE LA JUNTA", "hd l"),
-        S.c(80, 250, 20, "k-stone"), S.c(144, 250, 20, "k-stone"),
-        S.dh(100, 124, 250, "@j", 32),
-        S.t(190, 250, "Aberturas mayores a este valor: no permitidas", "sm l mt")
+        S.c(80, 274, 20, "k-stone"), S.c(144, 274, 20, "k-stone"),
+        S.dh(100, 124, 274, "@j", 32),
+        S.t(190, 274, "Aberturas mayores a este valor: no permitidas", "sm l mt")
       ].join("")
     },
     {
