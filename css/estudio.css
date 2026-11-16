@@ -260,3 +260,12 @@ footer.foot{max-width:1100px;margin:0 auto 40px;padding:0 16px;color:var(--mut);
 /* Filtros en una sola línea y banco de palabras siempre a la vista */
 .seg button{white-space:nowrap;flex:none}
 .qbody .bank{position:sticky;bottom:0;z-index:5;background:var(--surface-2);padding:10px 0 8px;margin:10px 0 0;border-top:1px solid var(--line)}
+
+/* Preguntas abiertas */
+.ta{width:100%;min-height:110px;resize:vertical;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:400 1rem/1.5 var(--font-b)}
+.ta:focus{outline:2px solid var(--accent-line);outline-offset:1px}
+.cks{display:grid;gap:8px;margin-top:8px}
+.ck{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);cursor:pointer;line-height:1.35}
+.ck input{width:20px;height:20px;flex:none;margin-top:1px;accent-color:var(--accent)}
+.model{margin-top:12px}
+h2.grp{grid-column:1/-1;font-size:1.1rem;text-transform:uppercase;letter-spacing:.14em;color:var(--accent-hi);margin:10px 2px 0;padding-bottom:6px;border-bottom:1px solid var(--line)}

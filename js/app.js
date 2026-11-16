@@ -184,7 +184,7 @@ function bindDiagram(d, svgHost, bankEl, onChange) {
 }
 
 /* ---------- tipos de pregunta ---------- */
-const TYPE_LABEL = { vf: 'Verdadero o falso', mc: 'Opción múltiple', fill: 'Completar', order: 'Ordenar pasos', match: 'Emparejar' };
+const TYPE_LABEL = { vf: 'Verdadero o falso', mc: 'Opción múltiple', fill: 'Completar', order: 'Ordenar pasos', match: 'Emparejar', open: 'Pregunta abierta' };
 
 function parseCloze(src) {
   const parts = []; const re = /\[\[(.+?)\]\]/g; let m, last = 0;
@@ -240,6 +240,23 @@ const TYPES = {
     const sb = new SlotBank({ slots, values: defs.concat(q.x || []), bankEl: $('.bank', host), onChange: o.change });
     return { answered: () => sb.allFilled(), correct: () => sb.isCorrect(), reveal() { sb.check(); }, lock() { sb.lock(); }, bank: sb };
   },
+  open(q, host, o) {
+    host.innerHTML = '<textarea class="ta" rows="5" placeholder="Escribe tu respuesta con tus propias palabras…"></textarea><div class="model"></div>';
+    const ta = $('textarea', host), box = $('.model', host); let shown = false;
+    ta.addEventListener('input', () => o.change());
+    return {
+      manual: true, auto: false,
+      answered: () => ta.value.trim().length > 0,
+      revealed: () => shown,
+      reveal() {
+        shown = true;
+        box.innerHTML = '<div class="why"><b>Respuesta modelo</b><div style="margin-top:6px">' + fmt(q.a) + '</div></div><div class="hint" style="margin-top:12px"><b>Autoevaluación:</b> marca los puntos que sí mencionaste.</div>' +
+          '<div class="cks">' + q.k.map((k, i) => `<label class="ck"><input type="checkbox" data-i="${i}"><span>${fmt(k)}</span></label>`).join('') + '</div>';
+      },
+      correct() { const b = $$('input[type=checkbox]', host); return b.length > 0 && b.filter(x => x.checked).length >= Math.ceil(b.length * 0.7); },
+      lock() { ta.disabled = true; $$('input[type=checkbox]', host).forEach(x => x.disabled = true); }
+    };
+  },
   order(q, host, o) {
     const items = q.s.map((t, i) => ({ t, i }));
     host.innerHTML = '<div class="hint">Toca los pasos en el orden correcto. Toca uno ya elegido para quitarlo.</div><div class="ordseq"></div><div class="ordpool"></div>';
@@ -265,6 +282,7 @@ function answerHTML(q) {
   if (q.t === 'mc') return fmt(q.o[q.a]);
   if (q.t === 'fill') return fmt(parseCloze(q.q).map(p => p.a ? `**${p.a[0]}**` : p.t).join(''));
   if (q.t === 'order') return '<ol class="steps">' + q.s.map(s => `<li>${fmt(s)}</li>`).join('') + '</ol>';
+  if (q.t === 'open') return fmt(q.a);
   if (q.t === 'match') return '<ul class="pts">' + q.p.map(p => `<li>${fmt(p[0])} → <b>${fmt(p[1])}</b></li>`).join('') + '</ul>';
   return '';
 }
@@ -281,7 +299,7 @@ function loadScript(src) {
 }
 
 async function pageTema() {
-  const id = +new URLSearchParams(location.search).get('t');
+  const id = new URLSearchParams(location.search).get('t');
   try { await loadScript('data/tema' + id + '.js'); } catch (e) { document.body.innerHTML = '<main><div class="panel"><h2>Tema no encontrado</h2><p><a href="index.html">Volver al índice</a></p></div></main>'; return; }
   const T = window.TEMAS[id];
   T.preguntas.forEach((q, i) => q.id = id + '-' + i);
@@ -290,14 +308,14 @@ async function pageTema() {
     read: () => LS.get(K + 'read', []), diag: () => LS.get(K + 'diag', []),
     cards: () => LS.get(K + 'cards', {}), q: () => LS.get(K + 'q', {}), best: () => LS.get(K + 'best', 0)
   };
-  document.title = 'Tema ' + id + ' · ' + T.corto + ' — Edificaciones';
+  document.title = (T.etiqueta || 'Tema ' + id) + ' · ' + T.corto + ' — ' + (T.materia || 'Edificaciones');
 
   const root = document.body;
   root.innerHTML = `
   <header class="top">
     <div class="topbar"><a class="back" href="index.html">${ic('back')} Temas</a><span id="themeslot"></span></div>
     <div class="brand"><div class="mark-logo"><svg viewBox="0 0 24 24">${IC.building}</svg></div>
-      <div><h1>Tema ${id} · ${esc(T.corto)}</h1><p class="sub">${esc(T.titulo)}</p></div></div>
+      <div><h1>${esc(T.etiqueta || 'Tema ' + id)} · ${esc(T.corto)}</h1><p class="sub">${esc(T.titulo)}</p></div></div>
     <div class="chips">${(T.chips || []).map((c, i) => `<span class="chip${i === 0 ? ' hi' : ''}">${esc(c)}</span>`).join('')}</div>
   </header>
   <nav class="tabs" role="tablist" id="tabs"></nav>
@@ -438,7 +456,7 @@ async function pageTema() {
   function viewPracticar() {
     const qs = T.preguntas; const m = st.q();
     const failed = qs.filter(x => m[x.id] && m[x.id].ok === false);
-    const filters = [['all', 'Todas', qs.length]].concat(['vf', 'mc', 'fill', 'order', 'match'].filter(t => qs.some(x => x.t === t)).map(t => [t, TYPE_LABEL[t], qs.filter(x => x.t === t).length])).concat([['fail', 'Falladas', failed.length]]);
+    const filters = [['all', 'Todas', qs.length]].concat(['vf', 'mc', 'fill', 'order', 'match', 'open'].filter(t => qs.some(x => x.t === t)).map(t => [t, TYPE_LABEL[t], qs.filter(x => x.t === t).length])).concat([['fail', 'Falladas', failed.length]]);
     const pool = pFilter === 'all' ? qs : pFilter === 'fail' ? failed : qs.filter(x => x.t === pFilter);
     const mastered = qs.filter(x => m[x.id] && m[x.id].ok).length;
     view.innerHTML = `
@@ -457,24 +475,26 @@ async function pageTema() {
       }
       const q = queue[i];
       area.innerHTML = `<div class="qhead"><span>Pregunta ${i + 1} de ${queue.length}</span><span>Aciertos: ${right}</span></div><div class="progress" style="--p:${pct(i, queue.length)}%"><i></i></div><div id="qh"></div><div id="fb"></div><div class="row gap" id="acts"></div>`;
-      const { el, api } = qCard(q, { change(a) { if (a.auto && a.answered()) check(); else if ($('#chkq')) $('#chkq').disabled = !a.answered(); } });
+      const { el, api } = qCard(q, { change(a) { if (a.auto && a.answered()) check(); else if ($('#chkq')) $('#chkq').disabled = a.manual ? false : !a.answered(); } });
       $('#qh').appendChild(el);
       let done = false;
       function check() {
-        if (done) return; done = true;
-        const ok = api.correct(); api.reveal(); api.lock(); record(q.id, ok); if (ok) right++;
-        $('#fb').innerHTML = `<div class="why ${ok ? 'ok' : 'bad'}"><b>${ok ? '¡Correcto!' : 'No es así.'}</b> ${!ok && q.t !== 'vf' && q.t !== 'mc' ? '<div class="mut" style="margin:6px 0 2px">Respuesta correcta:</div>' + answerHTML(q) : ''}${!ok && (q.t === 'vf' || q.t === 'mc') ? ' Correcta: <b>' + answerHTML(q) + '</b>.' : ''}${q.w ? '<div style="margin-top:6px">' + fmt(q.w) + '</div>' : ''}</div>`;
+        if (done) return;
+        if (api.manual && !api.revealed()) { api.reveal(); $('#chkq').textContent = 'Registrar autoevaluación'; return; }
+        done = true;
+        const ok = api.correct(); if (!api.manual) api.reveal(); api.lock(); record(q.id, ok); if (ok) right++;
+        $('#fb').innerHTML = `<div class="why ${ok ? 'ok' : 'bad'}"><b>${api.manual ? (ok ? '¡Bien! Cubriste lo esencial.' : 'Repasa los puntos que te faltaron.') : (ok ? '¡Correcto!' : 'No es así.')}</b> ${!ok && !api.manual && q.t !== 'vf' && q.t !== 'mc' ? '<div class="mut" style="margin:6px 0 2px">Respuesta correcta:</div>' + answerHTML(q) : ''}${!ok && (q.t === 'vf' || q.t === 'mc') ? ' Correcta: <b>' + answerHTML(q) + '</b>.' : ''}${q.w ? '<div style="margin-top:6px">' + fmt(q.w) + '</div>' : ''}</div>`;
         $('#acts').innerHTML = `<span class="spacer"></span><button class="btn pri" type="button" id="nx">${i + 1 < queue.length ? 'Siguiente' : 'Terminar'}</button>`;
         $('#nx').onclick = () => { i++; show(); window.scrollTo({ top: $('#qarea').getBoundingClientRect().top + scrollY - 70 }); };
         refreshBars();
       }
-      if (!api.auto) { $('#acts').innerHTML = '<button class="btn pri" type="button" id="chkq" disabled>Comprobar</button>'; $('#chkq').onclick = check; }
+      if (!api.auto) { $('#acts').innerHTML = api.manual ? '<button class="btn pri" type="button" id="chkq">Ver respuesta modelo</button>' : '<button class="btn pri" type="button" id="chkq" disabled>Comprobar</button>'; $('#chkq').onclick = check; }
     }
     show();
   }
 
   function viewPrueba() {
-    const qs = T.preguntas;
+    const qs = T.preguntas.filter(x => x.t !== 'open');
     const best = st.best(); const m = st.q(); const failedN = qs.filter(x => m[x.id] && m[x.id].ok === false).length;
     view.innerHTML = `<div class="panel"><h2>${ic('trophy')} Prueba</h2>
       <p>Simula un examen: no ves si acertaste hasta el final. Al terminar tienes puntaje y la revisión de cada error con su explicación.</p>
@@ -521,17 +541,19 @@ async function pageIndex() {
   await Promise.all(ids.map(id => loadScript('data/tema' + id + '.js').catch(() => null)));
   const list = ids.map(id => window.TEMAS && window.TEMAS[id]).filter(Boolean);
   let tot = 0, cnt = 0;
-  $('#cards').innerHTML = list.map(T => {
+  const groups = []; list.forEach(T => { const m = T.materia || 'Edificaciones'; let g = groups.find(x => x.m === m); if (!g) groups.push(g = { m, l: [] }); g.l.push(T); });
+  const card = T => {
     const K = KEY + 't' + T.id + '.';
     const read = LS.get(K + 'read', []).length, dg = LS.get(K + 'diag', []).length, cd = Object.values(LS.get(K + 'cards', {})).filter(v => v === 'ok').length;
     const q = LS.get(K + 'q', {}); const qm = T.preguntas.filter((x, i) => q[T.id + '-' + i] && q[T.id + '-' + i].ok).length;
     const total = T.secciones.length + T.diagramas.length + T.tarjetas.length + T.preguntas.length, done = read + dg + cd + qm;
     tot += total; cnt += done;
     const p = pct(done, total);
-    return `<a class="tcard" href="tema.html?t=${T.id}"><span class="n">Tema ${T.id}</span><h2>${esc(T.corto)}</h2><p>${esc(T.titulo)}</p>
+    return `<a class="tcard" href="tema.html?t=${T.id}"><span class="n">${esc(T.etiqueta || 'Tema ' + T.id)}</span><h2>${esc(T.corto)}</h2><p>${esc(T.titulo)}</p>
       <div class="meta"><span>${T.secciones.length} secciones</span><span>${T.diagramas.length} diagramas</span><span>${T.tarjetas.length} tarjetas</span><span>${T.preguntas.length} preguntas</span></div>
       <div class="pct"><div class="progress" style="--p:${p}%"><i></i></div>${p}%</div></a>`;
-  }).join('');
+  };
+  $('#cards').innerHTML = groups.map(g => `<h2 class="grp">${esc(g.m)}</h2>` + g.l.map(card).join('')).join('');
   const g = $('#gpct'); if (g) g.textContent = pct(cnt, tot) + '% completado';
 }
 
